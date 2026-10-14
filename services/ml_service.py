@@ -105,6 +105,22 @@ _ML_TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "Hindi":   "असत्यापित (दस्तावेज़ का पाठ सांख्यिकीय मूल्यांकन के लिए बहुत छोटा है)",
         "Marathi": "अपडताळलेले (दस्तऐवजातील मजकूर सांख्यिकी मूल्यांकनासाठी खूप कमी आहे)"
     },
+    "Fictional / Mock Notice": {
+        "Hindi": "काल्पनिक / मॉक नोटिस",
+        "Marathi": "काल्पनिक / नमुना नोटीस"
+    },
+    "Official authenticity not established (Demonstration / Mock Notice)": {
+        "Hindi": "आधिकारिक प्रामाणिकता स्थापित नहीं (काल्पनिक / परीक्षण दस्तावेज़)",
+        "Marathi": "अधिकृत सत्यता प्रस्थापित नाही (काल्पनिक / नमुना दस्तऐवज)"
+    },
+    "Official authenticity not independently verified": {
+        "Hindi": "आधिकारिक प्रामाणिकता स्वतंत्र रूप से सत्यापित नहीं है",
+        "Marathi": "अधिकृत सत्यता स्वतंत्रपणे पडताळलेली नाही"
+    },
+    "Explicit fictional or mock disclaimer detected in document.": {
+        "Hindi": "दस्तावेज़ में स्पष्ट रूप से काल्पनिक या मॉक नोटिस अस्वीकरण पाया गया।",
+        "Marathi": "दस्तऐवजात स्पष्ट काल्पनिक किंवा नमुना नोटीस अस्वीकरण आढळले."
+    },
     # ── Confidence labels ────────────────────────────────────────────────────
     "High Confidence": {
         "Hindi": "उच्च विश्वास", "Marathi": "उच्च विश्वासार्हता"
@@ -240,6 +256,79 @@ _FRAUD_SCAM_SAMPLES = [
 ]
 
 
+_FICTIONAL_DISCLAIMER_PATTERNS = [
+    # Explicit fictional document statements
+    re.compile(r'\b(?:this\s+(?:document|notice|circular|form)\s+is\s+fictional)\b', re.IGNORECASE),
+    re.compile(r'\b(?:fictional\s+(?:notice|circular|document|advertisement|post|form|announcement))\b', re.IGNORECASE),
+    re.compile(r'\bno\s+real\s+(?:recruitment|event|scholarship|job|admission|vacancy|post|examination)\s+(?:is\s+)?(?:advertised|offered|conducted|intended|provided)\b', re.IGNORECASE),
+    # Mock / Testing / Demo document statements
+    re.compile(r'\bmock\s+(?:notice|circular|document|form|announcement|advertisement)\b', re.IGNORECASE),
+    re.compile(r'\b(?:this\s+is\s+(?:a\s+)?)?(?:mock|dummy|synthetic)\s+(?:notice|circular|document|form|announcement)\b', re.IGNORECASE),
+    re.compile(r'\bfor\s+(?:[\w\s\-]+)?testing\s+(?:purposes?\s+)?only\b', re.IGNORECASE),
+    re.compile(r'\bfor\s+(?:demonstration|demo|simulation|evaluative)\s+purposes?\s+only\b', re.IGNORECASE),
+    re.compile(r'\bcreated\s+for\s+(?:demonstration|demo|testing|evaluation)\s+purposes?\b', re.IGNORECASE),
+    re.compile(r'\bnot\s+an\s+official\s+(?:notice|circular|document|announcement)\b', re.IGNORECASE),
+    # Sample notice specifically
+    re.compile(r'\bthis\s+is\s+(?:a\s+)?sample\s+(?:application\s+)?(?:notice|circular|form)\b', re.IGNORECASE),
+    re.compile(r'\bsample\s+(?:application\s+)?(?:notice|circular)\s*[-—:]?\s*(?:not\s+for\s+official\s+use|for\s+(?:illustration|demonstration)\s+only)\b', re.IGNORECASE),
+    # Hindi / Marathi
+    re.compile(r'काल्पनिक\s+(?:नोटिस|परिपत्रक?|दस्तावेज़|विज्ञापन)', re.IGNORECASE),
+    re.compile(r'यह\s+(?:दस्तावेज़|नोटिस|परिपत्रक)\s+काल्पनिक\s+है', re.IGNORECASE),
+    re.compile(r'केवल\s+(?:परीक्षण|प्रदर्शन|टेस्टिंग)\s+(?:के\s+लिए|हेतु)', re.IGNORECASE),
+    re.compile(r'कोई\s+वास्तविक\s+(?:भर्ती|छात्रवृत्ति|नौकरी|प्रवेश)\s+नहीं', re.IGNORECASE),
+    re.compile(r'काल्पनिक\s+(?:नोटीस|परिपत्रक|कागदपत्र)', re.IGNORECASE),
+    re.compile(r'हे\s+(?:परिपत्रक|कागदपत्र|नोटीस)\s+काल्पनिक\s+आहे', re.IGNORECASE),
+    re.compile(r'केवळ\s+(?:चाचणीसाठी|प्रात्यक्षिकासाठी|नमुन्यासाठी)', re.IGNORECASE),
+    re.compile(r'कोणतीही\s+खरी\s+(?:भरती|शिष्यवृत्ती|नोकरी|प्रवेश)\s+नाही', re.IGNORECASE)
+]
+
+
+def extract_fictional_disclaimer(text: str) -> Tuple[bool, Optional[str], Optional[int]]:
+    """
+    Evidence-based document status detector.
+    Identifies explicit disclaimers indicating a document is fictional, mock, or a test sample.
+    Returns: (is_fictional, disclaimer_passage, page_number)
+    """
+    if not text:
+        return False, None, None
+
+    lines = text.splitlines()
+    for line in lines:
+        trimmed = line.strip()
+        if not trimmed or len(trimmed) < 6:
+            continue
+
+        # Protective warnings: ignore warnings advising against external fake notices
+        if re.search(r'\b(?:beware\s+of|alert|warning|advisory|scam\s+alert|do\s+not\s+(?:fall\s+for|trust|believe))\b', trimmed, re.IGNORECASE):
+            if not re.search(r'\b(?:this\s+(?:document|notice)\s+is\s+fictional|mock\s+notice)\b', trimmed, re.IGNORECASE):
+                continue
+
+        # Negation checks: e.g. 'not fictional', 'not a mock'
+        if re.search(r'\b(?:is\s+not\s+fictional|not\s+a\s+mock|no\s+fake\s+notice)\b', trimmed, re.IGNORECASE):
+            continue
+
+        for pat in _FICTIONAL_DISCLAIMER_PATTERNS:
+            match = pat.search(trimmed)
+            if match:
+                # Exclusion filters: literature, mock test, sample certificate/paper
+                if re.search(r'\b(?:literature|poetry|novel|story|case\s+study|mock\s+(?:test|exam|interview|drill)|sample\s+(?:paper|copy|certificate|marksheet))\b', trimmed, re.IGNORECASE):
+                    if not re.search(r'\b(?:fictional\s+(?:notice|circular|document)|for\s+(?:[\w\s\-]+)?testing\s+(?:purposes?\s+)?only|no\s+real\s+(?:recruitment|scholarship|admission)|mock\s+notice)\b', trimmed, re.IGNORECASE):
+                        continue
+
+                # Locate page number if available in multi-page document
+                page_no = 1
+                pages_split = re.split(r'---\s*\[Page\s*(\d+)\]\s*---', text)
+                if len(pages_split) > 1:
+                    for p_i in range(1, len(pages_split), 2):
+                        if match.group(0).lower() in pages_split[p_i + 1].lower():
+                            page_no = int(pages_split[p_i])
+                            break
+
+                return True, trimmed, page_no
+
+    return False, None, None
+
+
 class NoticeAuthenticityModel:
     """
     TF-IDF + Logistic Regression Classifier with transparent rule-based auditing.
@@ -342,7 +431,8 @@ class NoticeAuthenticityModel:
 
     def predict(self, text: str, target_language: str = "English") -> Dict[str, Any]:
         """
-        Predict authenticity using pure ML probability, transparently supplemented by rule-based auditing.
+        Predict authenticity using pure ML probability, transparently supplemented by rule-based auditing
+        and evidence-based document status detection.
         All output strings are returned in target_language.
         """
         # Handle short or empty document text (Phase 3 Requirement 8 & 9)
@@ -356,7 +446,12 @@ class NoticeAuthenticityModel:
                 "confidence": _t("Unavailable", target_language),
                 "signals": [_t("Document contains insufficient text for statistical evaluation.", target_language)],
                 "rule_warnings": [],
-                "badge_color": "#64748B"
+                "badge_color": "#64748B",
+                "is_fictional": False,
+                "document_status": _t("Unverified (Document text too short for statistical evaluation)", target_language),
+                "fictional_evidence": None,
+                "fictional_page": None,
+                "official_authenticity": _t("Unavailable", target_language)
             }
 
         # Predict pure probability of class 1 (Authentic) from ML model
@@ -367,44 +462,65 @@ class NoticeAuthenticityModel:
         # Extract contextual rules and security cues
         authentic_signals_en, warning_signals_en = self.extract_contextual_signals(text)
 
-        # Transparent classification: DO NOT artificially override the learned ML probability
-        is_authentic = ml_auth_percent >= 50.0
+        # Evidence-based document status detection (Fictional / Mock Notice)
+        is_fictional, fictional_evidence, fictional_page = extract_fictional_disclaimer(text)
 
-        # Formulate non-misleading, evidence-based verdict
-        if is_authentic:
-            if warning_signals_en:
-                # Authentic structure but contains red flags
-                verdict_en = "Administrative Format with Security Warnings"
-                confidence_en = "Review Advised"
-                badge_color = "#F59E0B"  # Amber
-            elif ml_auth_percent >= 80:
-                verdict_en = "High Administrative Consistency"
-                confidence_en = "High Confidence"
-                badge_color = "#10B981"  # Emerald Green
-            else:
-                verdict_en = "Likely Standard Administrative Format"
-                confidence_en = "Moderate Confidence"
-                badge_color = "#3B82F6"  # Blue
+        if is_fictional:
+            # Document explicitly identifies itself as fictional or a mock test notice
+            is_authentic = False
+            verdict_en = "Fictional / Mock Notice"
+            document_status_en = "Fictional / Mock Notice"
+            confidence_en = "High Confidence"
+            badge_color = "#8B5CF6"  # Royal Purple for mock / demonstration notice
+            official_authenticity_en = "Official authenticity not established (Demonstration / Mock Notice)"
+
+            # Build signals list with explicit evidence
+            disclaimer_sig = f"Explicit fictional/mock disclaimer detected (Page {fictional_page}): \"{fictional_evidence}\""
+            all_signals_en = [disclaimer_sig] + authentic_signals_en
         else:
-            if ml_fraud_percent >= 70 or warning_signals_en:
-                verdict_en = "Suspicious / Potential Scam Notice"
-                confidence_en = "High Suspicion"
-                badge_color = "#EF4444"  # Red
-            else:
-                verdict_en = "Unverified / Irregular Notice"
-                confidence_en = "Review Advised"
-                badge_color = "#F59E0B"  # Amber
+            # Transparent classification: DO NOT artificially override the learned ML probability
+            is_authentic = ml_auth_percent >= 50.0
 
-        # Combine signals for display
-        all_signals_en = authentic_signals_en + warning_signals_en
-        if not all_signals_en:
-            all_signals_en.append("Standard administrative communication patterns analyzed")
+            # Formulate non-misleading, evidence-based verdict
+            if is_authentic:
+                if warning_signals_en:
+                    # Authentic structure but contains red flags
+                    verdict_en = "Administrative Format with Security Warnings"
+                    confidence_en = "Review Advised"
+                    badge_color = "#F59E0B"  # Amber
+                elif ml_auth_percent >= 80:
+                    verdict_en = "High Administrative Consistency"
+                    confidence_en = "High Confidence"
+                    badge_color = "#10B981"  # Emerald Green
+                else:
+                    verdict_en = "Likely Standard Administrative Format"
+                    confidence_en = "Moderate Confidence"
+                    badge_color = "#3B82F6"  # Blue
+            else:
+                if ml_fraud_percent >= 70 or warning_signals_en:
+                    verdict_en = "Suspicious / Potential Scam Notice"
+                    confidence_en = "High Suspicion"
+                    badge_color = "#EF4444"  # Red
+                else:
+                    verdict_en = "Unverified / Irregular Notice"
+                    confidence_en = "Review Advised"
+                    badge_color = "#F59E0B"  # Amber
+
+            document_status_en = verdict_en
+            official_authenticity_en = "Official authenticity not independently verified"
+
+            # Combine signals for display
+            all_signals_en = authentic_signals_en + warning_signals_en
+            if not all_signals_en:
+                all_signals_en.append("Standard administrative communication patterns analyzed")
 
         # Translate output strings
         signals = [_t(s, target_language) for s in all_signals_en]
         rule_warnings = [_t(w, target_language) for w in warning_signals_en]
         verdict = _t(verdict_en, target_language)
+        document_status = _t(document_status_en, target_language)
         confidence = _t(confidence_en, target_language)
+        official_authenticity = _t(official_authenticity_en, target_language)
 
         return {
             "is_authentic": is_authentic,
@@ -415,8 +531,13 @@ class NoticeAuthenticityModel:
             "confidence": confidence,
             "signals": signals,
             "rule_warnings": rule_warnings,
-            "has_security_red_flags": len(warning_signals_en) > 0,
-            "badge_color": badge_color
+            "has_security_red_flags": len(warning_signals_en) > 0 and not is_fictional,
+            "badge_color": badge_color,
+            "is_fictional": is_fictional,
+            "document_status": document_status,
+            "fictional_evidence": fictional_evidence,
+            "fictional_page": fictional_page,
+            "official_authenticity": official_authenticity
         }
 
 

@@ -27,7 +27,8 @@ from services.ai_service import (
 from services.ml_service import (
     NoticeAuthenticityModel,
     UrgencyRiskModel,
-    assess_document_ml
+    assess_document_ml,
+    extract_fictional_disclaimer
 )
 
 
@@ -288,7 +289,105 @@ class TestFormFixAI(unittest.TestCase):
         self.assertIn("urgency", assessment)
         self.assertIn("authenticity_score", assessment["authenticity"])
         self.assertIn("urgency_score", assessment["urgency"])
-        print("  [PASS] ML Full Assessment pipeline passed.")
+    # ── Phase 5: Fictional Document Status & Misclassification Fix ──────────
+
+    def test_scholarship_notice_fictional_classification(self):
+        """Test Fictional Fix: Scholarship notice has ML score ~74% but status Fictional."""
+        import pymupdf as fitz
+        pdf_path = PROJECT_ROOT / "Scholarship_Application_Notice(1).pdf"
+        if pdf_path.exists():
+            doc = fitz.open(pdf_path)
+            pdf_text = doc[0].get_text("text")
+            model = NoticeAuthenticityModel()
+            res = model.predict(pdf_text)
+
+            self.assertTrue(res["is_fictional"])
+            self.assertEqual(res["document_status"], "Fictional / Mock Notice")
+            self.assertEqual(res["verdict"], "Fictional / Mock Notice")
+            # Raw ML probability must be preserved (~74%)
+            self.assertAlmostEqual(res["authenticity_score"], 74.4, delta=3.0)
+            self.assertIsNotNone(res["fictional_evidence"])
+            self.assertTrue(
+                "Fictional notice" in res["fictional_evidence"] or "MOCK NOTICE" in res["fictional_evidence"]
+            )
+            self.assertEqual(res["fictional_page"], 1)
+            self.assertIn("not established", res["official_authenticity"].lower())
+            self.assertFalse(res["has_security_red_flags"])  # Not flagged as scam
+            print("  [PASS] Scholarship notice correctly identified as Fictional with raw ML score ~74%.")
+
+    def test_legitimate_notice_discussing_fictional_literature(self):
+        """Test Fictional Fix: Legitimate notice discussing fictional literature is NOT flagged as fictional."""
+        model = NoticeAuthenticityModel()
+        lit_text = (
+            "STATE UNIVERSITY EXAMINATION BOARD Ref: EXAM/2026/782. "
+            "Syllabus for the Master of Arts in English Literature includes questions on "
+            "fictional literature, short stories, and Renaissance drama. "
+            "All registered candidates must download their admit cards from the official portal."
+        )
+        res = model.predict(lit_text)
+        self.assertFalse(res["is_fictional"])
+        self.assertIsNone(res["fictional_evidence"])
+        self.assertTrue(res["is_authentic"])
+        self.assertNotEqual(res["document_status"], "Fictional / Mock Notice")
+        print("  [PASS] Literature/case study exclusion passed (no false positive).")
+
+    def test_protective_warning_against_fake_notices(self):
+        """Test Fictional Fix: Protective notice warning against fake/mock circulars is NOT flagged as fictional."""
+        model = NoticeAuthenticityModel()
+        warning_text = (
+            "PUBLIC ADVISORY No: ADM/2026/09. "
+            "Candidates are hereby advised: Beware of fake or fictional notices circulating on social media. "
+            "No recruitment is conducted via informal channels. Always refer to the official government portal."
+        )
+        res = model.predict(warning_text)
+        self.assertFalse(res["is_fictional"])
+        self.assertIsNone(res["fictional_evidence"])
+        self.assertTrue(res["is_authentic"])
+        print("  [PASS] Protective notice warning against fake notices passed.")
+
+    def test_fictional_notice_without_word_mock(self):
+        """Test Fictional Fix: Fictional notice without the word 'mock' is correctly detected."""
+        model = NoticeAuthenticityModel()
+        demo_text = (
+            "DEPARTMENT OF SOCIAL SERVICES.\n"
+            "This document is fictional. No real recruitment, event or scholarship is advertised.\n"
+            "Applications are invited for the Student Welfare Grant 2026.\n"
+            "Eligible applicants must submit income certificates before 15 November 2026."
+        )
+        res = model.predict(demo_text)
+        self.assertTrue(res["is_fictional"])
+        self.assertEqual(res["document_status"], "Fictional / Mock Notice")
+        self.assertIn("fictional", res["fictional_evidence"].lower())
+        print("  [PASS] Fictional notice without 'mock' keyword detected.")
+
+    def test_fraudulent_notice_without_disclaimer(self):
+        """Test Fictional Fix: Fraudulent notice is classified as scam, NOT fictional."""
+        model = NoticeAuthenticityModel()
+        scam_text = (
+            "URGENT SELECTION! You have been selected for Railway Group D direct appointment. "
+            "Pay Rs 1,500 registration charge immediately via PhonePe or Google Pay to 9876543210. "
+            "Join our Telegram channel now."
+        )
+        res = model.predict(scam_text)
+        self.assertFalse(res["is_fictional"])
+        self.assertFalse(res["is_authentic"])
+        self.assertEqual(res["document_status"], "Suspicious / Potential Scam Notice")
+        self.assertTrue(res["has_security_red_flags"])
+        print("  [PASS] Fraudulent notice correctly categorized as scam, not fictional.")
+
+    def test_sample_copy_marksheet_not_flagged(self):
+        """Test Fictional Fix: Legitimate notice requesting sample copy of certificate is NOT flagged as fictional."""
+        model = NoticeAuthenticityModel()
+        sample_doc_text = (
+            "STAFF SELECTION COMMISSION Memo No: SSC/2026/512. "
+            "Candidates must submit a sample copy of their high school marksheet and caste certificate. "
+            "Detailed instructions are published on the official commission website."
+        )
+        res = model.predict(sample_doc_text)
+        self.assertFalse(res["is_fictional"])
+        self.assertIsNone(res["fictional_evidence"])
+        self.assertTrue(res["is_authentic"])
+        print("  [PASS] Unrelated 'sample copy' context passed without false detection.")
 
 
 if __name__ == "__main__":

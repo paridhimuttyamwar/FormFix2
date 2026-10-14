@@ -465,9 +465,29 @@ if st.session_state.analysis_result:
             auth_score_text = f"{auth_score}%" if auth_score is not None else ("अनुपलब्ध" if target_language == "Hindi" else ("अनुपलब्ध" if target_language == "Marathi" else "N/A"))
             signals_html = "".join(f"<li style='margin-bottom: 2px;'>{sig}</li>" for sig in auth_data.get("signals", []))
 
-            _auth_title = {"English": "🛡️ Notice Authenticity & Trust Score", "Hindi": "🛡️ नोटिस प्रामाणिकता और विश्वास स्कोर", "Marathi": "🛡️ परिपत्रक सत्यता व विश्वासार्हता गुण"}.get(target_language, "🛡️ Notice Authenticity & Trust Score")
+            is_fic = auth_data.get("is_fictional", False)
+            fic_evidence = auth_data.get("fictional_evidence")
+            fic_page = auth_data.get("fictional_page", 1)
+            doc_status = auth_data.get("document_status", verdict)
+            official_auth = auth_data.get("official_authenticity", "Official authenticity not independently verified")
+
+            if is_fic:
+                fic_header = {
+                    "Hindi": f"⚠️ **काल्पनिक / मॉक नोटिस (गैर-आधिकारिक)**\n\n**पहचाना गया अस्वीकरण (पृष्ठ {fic_page}):** *\"{fic_evidence}\"*\n\n**आधिकारिक प्रामाणिकता:** {official_auth}",
+                    "Marathi": f"⚠️ **काल्पनिक / नमुना नोटीस (अनधिकृत प्रात्यक्षिक)**\n\n**आढळलेले अस्वीकरण (पृष्ठ {fic_page}):** *\"{fic_evidence}\"*\n\n**अधिकृत सत्यता:** {official_auth}",
+                    "English": f"⚠️ **Fictional / Mock Notice (Non-Official Demonstration)**\n\n**Detected Disclaimer (Page {fic_page}):** *\"{fic_evidence}\"*\n\n**Official Authenticity:** {official_auth}"
+                }.get(target_language, f"⚠️ **Fictional / Mock Notice** (Page {fic_page}): *\"{fic_evidence}\"*")
+                st.warning(fic_header)
+
+            if is_fic:
+                _auth_title = {"English": "📊 ML Text Consistency Score", "Hindi": "📊 एमएल पाठ प्रारूप संगति स्कोर", "Marathi": "📊 एमएल मजकूर रचना सुसंगतता गुण"}.get(target_language, "📊 ML Text Consistency Score")
+            else:
+                _auth_title = {"English": "🛡️ Notice Authenticity & Trust Score", "Hindi": "🛡️ नोटिस प्रामाणिकता और विश्वास स्कोर", "Marathi": "🛡️ परिपत्रक सत्यता व विश्वासार्हता गुण"}.get(target_language, "🛡️ Notice Authenticity & Trust Score")
+
             _findings_title = {"English": "Verification Findings:", "Hindi": "सत्यापन निष्कर्ष:", "Marathi": "पडताळणी निष्कर्ष:"}.get(target_language, "Verification Findings:")
             _check_label = {"English": "Check: <strong>Statutory Pattern & Verification Audit</strong>", "Hindi": "जांच: <strong>वैधानिक प्रारूप और सत्यापन ऑडिट</strong>", "Marathi": "तपासणी: <strong>वैधानिक रचना व सत्यापन ऑडिट</strong>"}.get(target_language, "Check: <strong>Statutory Pattern & Verification Audit</strong>")
+            _auth_status_label = {"English": "Official Authenticity", "Hindi": "आधिकारिक प्रामाणिकता", "Marathi": "अधिकृत सत्यता"}.get(target_language, "Official Authenticity")
+            _doc_status_title = {"English": "Document Status", "Hindi": "दस्तावेज़ स्थिति", "Marathi": "दस्तऐवज स्थिती"}.get(target_language, "Document Status")
 
             st.markdown(f"""
             <div style="background: #FFFFFF; border: 1.5px solid {auth_color}45; border-top: 4px solid {auth_color}; border-radius: 12px; padding: 1.1rem; margin-bottom: 1.2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
@@ -477,10 +497,13 @@ if st.session_state.analysis_result:
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem;">
                     <span style="font-size: 1.7rem; font-weight: 800; color: {auth_color};">{auth_score_text}</span>
-                    <span style="font-size: 0.92rem; font-weight: 600; color: #334155;">{verdict}</span>
+                    <span style="font-size: 0.92rem; font-weight: 600; color: #334155;">{doc_status}</span>
                 </div>
-                <div style="font-size: 0.8rem; color: #64748B; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.8rem; color: #64748B; margin-bottom: 0.4rem;">
                     {_check_label}
+                </div>
+                <div style="font-size: 0.8rem; color: #475569; margin-bottom: 0.5rem; background: #F8FAFC; padding: 4px 8px; border-radius: 6px;">
+                    <strong>{_auth_status_label}:</strong> {official_auth}
                 </div>
                 <div style="font-size: 0.85rem; color: #475569;">
                     <strong>{_findings_title}</strong>

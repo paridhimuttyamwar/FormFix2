@@ -255,12 +255,47 @@ else:
         else:
             _auth_val_str = "अनुपलब्ध" if target_language == "Hindi" else ("अनुपलब्ध" if target_language == "Marathi" else "N/A (Unverified)")
 
+        is_fic = auth.get("is_fictional", False)
+        fic_evidence = auth.get("fictional_evidence")
+        fic_page = auth.get("fictional_page", 1)
+        doc_status = auth.get("document_status", auth.get("verdict", "Unknown"))
+        official_auth = auth.get("official_authenticity", "Official authenticity not independently verified")
+
+        if is_fic:
+            fic_header = {
+                "Hindi": f"⚠️ **काल्पनिक / मॉक नोटिस (गैर-आधिकारिक)**\n\n**पहचाना गया अस्वीकरण (पृष्ठ {fic_page}):** *\"{fic_evidence}\"*\n\n**आधिकारिक प्रामाणिकता:** {official_auth}",
+                "Marathi": f"⚠️ **काल्पनिक / नमुना नोटीस (अनधिकृत प्रात्यक्षिक)**\n\n**आढळलेले अस्वीकरण (पृष्ठ {fic_page}):** *\"{fic_evidence}\"*\n\n**अधिकृत सत्यता:** {official_auth}",
+                "English": f"⚠️ **Fictional / Mock Notice (Non-Official Demonstration)**\n\n**Detected Disclaimer (Page {fic_page}):** *\"{fic_evidence}\"*\n\n**Official Authenticity:** {official_auth}"
+            }.get(target_language, f"⚠️ **Fictional / Mock Notice** (Page {fic_page}): *\"{fic_evidence}\"*")
+            st.warning(fic_header)
+
+        # Distinguish statistical ML text consistency score from final Document Status
+        _metric_label = {
+            "Hindi": "📊 एमएल पाठ प्रारूप संगति (TF-IDF + LR)",
+            "Marathi": "📊 एमएल मजकूर रचना सुसंगतता (TF-IDF + LR)",
+            "English": "📊 ML Text Consistency Score (TF-IDF + LR)"
+        }.get(target_language, "📊 ML Text Consistency Score") if is_fic else ui["metric_auth"]
+
         st.metric(
-            label=ui["metric_auth"],
+            label=_metric_label,
             value=_auth_val_str,
-            delta=auth.get("verdict", "Unknown")
+            delta=doc_status
         )
-        st.caption(f"**{ui['status_label']}:** {auth.get('confidence', 'Normal')}")
+
+        _doc_status_label = {
+            "Hindi": "दस्तावेज़ स्थिति",
+            "Marathi": "दस्तऐवज स्थिती",
+            "English": "Document Status"
+        }.get(target_language, "Document Status")
+
+        _auth_label = {
+            "Hindi": "आधिकारिक प्रामाणिकता",
+            "Marathi": "अधिकृत सत्यता",
+            "English": "Official Authenticity"
+        }.get(target_language, "Official Authenticity")
+
+        st.caption(f"**{_doc_status_label}:** {doc_status} | **{_auth_label}:** {official_auth}")
+
         with st.expander(ui["expander_findings"]):
             for sig in auth.get("signals", []):
                 st.write(f"- {sig}")
