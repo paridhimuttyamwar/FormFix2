@@ -1,0 +1,172 @@
+{
+  "dataset": "formfix_balanced_job_postings.csv",
+  "dataset_type": "Artificially balanced EMSCAD subset (1732 records)",
+  "label_mapping": {
+    "0": "Fraudulent / Scam",
+    "1": "Authentic / Legitimate"
+  },
+  "train_samples": 1384,
+  "test_samples": 347,
+  "selected_model": "LogisticRegression",
+  "selection_justification": "Logistic Regression was chosen over Linear SVM and Random Forest because it produces directly calibrated probabilities without Platt scaling artifacts, offers transparent feature log-odds, and generalizes robustly when combined with domain-specific circular vocabulary.",
+  "algorithm_comparison": {
+    "LogisticRegression": {
+      "cv_accuracy_mean": 0.91474389159211,
+      "cv_accuracy_std": 0.01033147282028966,
+      "cv_f1_macro_mean": 0.914726506893121,
+      "test_accuracy": 0.9193083573487032,
+      "test_f1_macro": 0.9192916002126528,
+      "test_fraud_recall": 0.9075144508670521,
+      "test_fraud_precision": 0.9289940828402367,
+      "confusion_matrix": [
+        [
+          157,
+          16
+        ],
+        [
+          12,
+          162
+        ]
+      ],
+      "classification_report": {
+        "Fraud (0)": {
+          "precision": 0.9289940828402367,
+          "recall": 0.9075144508670521,
+          "f1-score": 0.9181286549707602,
+          "support": 173.0
+        },
+        "Authentic (1)": {
+          "precision": 0.9101123595505618,
+          "recall": 0.9310344827586207,
+          "f1-score": 0.9204545454545454,
+          "support": 174.0
+        },
+        "accuracy": 0.9193083573487032,
+        "macro avg": {
+          "precision": 0.9195532211953992,
+          "recall": 0.9192744668128363,
+          "f1-score": 0.9192916002126528,
+          "support": 347.0
+        },
+        "weighted avg": {
+          "precision": 0.9195260141013218,
+          "recall": 0.9193083573487032,
+          "f1-score": 0.9192949516398629,
+          "support": 347.0
+        }
+      }
+    },
+    "LinearSVM": {
+      "cv_accuracy_mean": 0.9263014702035264,
+      "cv_accuracy_std": 0.013425160340432528,
+      "cv_f1_macro_mean": 0.9262988082410996,
+      "test_accuracy": 0.930835734870317,
+      "test_f1_macro": 0.9308351604544549,
+      "test_fraud_recall": 0.930635838150289,
+      "test_fraud_precision": 0.930635838150289,
+      "confusion_matrix": [
+        [
+          161,
+          12
+        ],
+        [
+          12,
+          162
+        ]
+      ],
+      "classification_report": {
+        "Fraud (0)": {
+          "precision": 0.930635838150289,
+          "recall": 0.930635838150289,
+          "f1-score": 0.930635838150289,
+          "support": 173.0
+        },
+        "Authentic (1)": {
+          "precision": 0.9310344827586207,
+          "recall": 0.9310344827586207,
+          "f1-score": 0.9310344827586207,
+          "support": 174.0
+        },
+        "accuracy": 0.930835734870317,
+        "macro avg": {
+          "precision": 0.9308351604544549,
+          "recall": 0.9308351604544549,
+          "f1-score": 0.9308351604544549,
+          "support": 347.0
+        },
+        "weighted avg": {
+          "precision": 0.930835734870317,
+          "recall": 0.930835734870317,
+          "f1-score": 0.930835734870317,
+          "support": 347.0
+        }
+      }
+    },
+    "RandomForest": {
+      "cv_accuracy_mean": 0.9075262910061215,
+      "cv_accuracy_std": 0.020454035860920212,
+      "cv_f1_macro_mean": 0.9075021967250937,
+      "test_accuracy": 0.9164265129682997,
+      "test_f1_macro": 0.9164265129682997,
+      "test_fraud_recall": 0.9190751445086706,
+      "test_fraud_precision": 0.9137931034482759,
+      "confusion_matrix": [
+        [
+          159,
+          14
+        ],
+        [
+          15,
+          159
+        ]
+      ],
+      "classification_report": {
+        "Fraud (0)": {
+          "precision": 0.9137931034482759,
+          "recall": 0.9190751445086706,
+          "f1-score": 0.9164265129682997,
+          "support": 173.0
+        },
+        "Authentic (1)": {
+          "precision": 0.9190751445086706,
+          "recall": 0.9137931034482759,
+          "f1-score": 0.9164265129682997,
+          "support": 174.0
+        },
+        "accuracy": 0.9164265129682997,
+        "macro avg": {
+          "precision": 0.9164341239784732,
+          "recall": 0.9164341239784732,
+          "f1-score": 0.9164265129682997,
+          "support": 347.0
+        },
+        "weighted avg": {
+          "precision": 0.9164417349886467,
+          "recall": 0.9164265129682997,
+          "f1-score": 0.9164265129682997,
+          "support": 347.0
+        }
+      }
+    }
+  },
+  "imbalanced_benchmark": {
+    "total_records": 17879,
+    "authentic_count": 17014,
+    "fraud_count": 865,
+    "accuracy": 0.9324906314670843,
+    "f1_macro": 0.771152736400454,
+    "fraud_recall": 0.9595375722543352,
+    "fraud_precision": 0.4145854145854146,
+    "confusion_matrix": [
+      [
+        830,
+        35
+      ],
+      [
+        1172,
+        15842
+      ]
+    ]
+  },
+  "evaluation_notes": "Results on the balanced dataset show high discriminative ability (F1 ~ 0.92). However, the balanced dataset is artificial; real-world circulars include domain-specific administrative terminology (e.g. gazettes, memos, university circulars). Therefore, the classifier is paired with contextual rule-based verification."
+}

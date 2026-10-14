@@ -1,0 +1,22 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Datasets - raw external dumps
+datasets/raw_emscad.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+venv/
+env/
+.pytest_cache/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS files
+Thumbs.db
+.DS_Store
